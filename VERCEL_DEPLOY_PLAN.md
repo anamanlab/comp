@@ -233,6 +233,8 @@ fork is fine)
 gh repo fork trycompai/comp --clone=false --remote=false   # →.anamanlab/comp
 cd /home/civo/comp && git remote add origin git@github.com:anamanlab/comp.git
 ```
+> Done: `github.com/anamanlab/comp` (public — also satisfies AGPL-3.0 §13). Use the HTTPS remote; the
+> account has no SSH host key for github.com and `gh` provides an HTTPS credential helper.
 1.2 Remove the build blocker
 ```bash
 git rm apps/app/vercel-build.sh
@@ -323,13 +325,14 @@ Vercel project, `NEXT_PUBLIC_PORTAL_URL` + `BETTER_AUTH_URL_PORTAL` pointed at i
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| Build exceeds 45 min on Vercel | Medium | Measure in Gate 0. Filtered install (`bun install --filter @trycompai/app...`), turbo cache, `NODE_OPTIONS=--max_old_space_size=6144`, drop `three`/`monaco`/`stagehand`/`browserbase` deps you don't use, consider `--turbopack` build. |
-| Vercel blocks `..` in Root Directory | Medium | Shape C (vendor + commit schema). |
-| Missing `dist/` at build time | **High if unaddressed** | `turbo run build --filter=@trycompai/app...` compiles deps; assert in Gate 0.3. |
+| **Build OOM on Vercel** | **Happened, then fixed** | Next.js runs type checking in a *separate* build worker. The Turbopack compile peaks first, then the TS worker (a second Node process inheriting `NODE_OPTIONS`) exceeds the 8 GB Basic build container → SIGKILL / `out_of_memory`. Fixed by gating `typescript.ignoreBuildErrors` on `SKIP_TYPES=1` in the Vercel build env; type checking stays covered by `bun run typecheck` (its own turbo task) locally and in CI. **Hobby is locked to the Basic build machine (2 vCPU / 8 GB)** — Enhanced (16 GB) and Turbo (60 GB) are Pro/Enterprise only. |
+| Build exceeds 45 min on Vercel | Low | Local build: 5m46s on 6 CPUs. Vercel Basic has 2 vCPUs, so expect ~12–18 min — still well inside 45. Turbo cache + filtered install keep it down. |
+| Vercel blocks `..` in Root Directory | Resolved | New projects have **"Include source files outside of the Root Directory in the Build Step"** enabled by default (API field `sourceFilesOutsideRootDirectory`, confirmed `true` on `comp-app`). Confirmed by a successful build that read `../../packages/db/prisma/schema`. |
+| Missing `dist/` at build time | Resolved | `turbo run build --filter=@trycompai/app...` compiles the four packages that resolve via `./dist` (`auth`, `billing`, `company`, `db`); the rest resolve from source through tsconfig paths. Dry-run confirms 18 tasks. |
 | Hobby 4 CPU-hrs/mo exhausted | Medium | Disable PostHog/Sentry, cache aggressively, keep polling client-side low-frequency. |
-| Neon suspends between requests | Certain | Accept the cold start, or move to Supabase/your own Postgres. |
-| Hobby ToS (non-commercial) | Certain if commercial | Pro $20/mo, or self-host Docker on a free container host. |
-| AGPL source-disclosure obligation | Certain | Publish the modified source; keep `LICENSE` + notices. |
+| Neon suspends between requests | Handled | Neon Free auto-resumes in a few hundred ms — a slow first request, not an error. Use the **pooled** endpoint so lambdas don't exhaust the connection limit. |
+| Hobby ToS (non-commercial) | Certain if commercial | Pro $20/mo, or self-host the Docker image on a free container host. |
+| AGPL source-disclosure obligation | Certain | The fork is public; keep it that way and keep `LICENSE` + notices. |
 | Upstream drift | Ongoing | Keep the fork's diff small and isolated to `apps/app` + `vercel/`; rebase onto `upstream/main` periodically. |
 
 **Fallback path if Vercel fails outright:** the repo's Docker path is upstream-supported and is a
