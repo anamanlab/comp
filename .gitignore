@@ -110,3 +110,4 @@ apps/mcp-server/.github/
 # These must never be committed. Unanchored so nested paths are covered too.
 dbq_*.js
 *.csv
+.env*
