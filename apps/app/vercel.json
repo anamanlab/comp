@@ -6,7 +6,8 @@
   "build": {
     "env": {
       "SKIP_ENV_VALIDATION": "1",
-      "NODE_OPTIONS": "--max_old_space_size=6144",
+      "SKIP_TYPES": "1",
+      "NODE_OPTIONS": "--max_old_space_size=5120",
       "NEXT_TELEMETRY_DISABLED": "1"
     }
   }

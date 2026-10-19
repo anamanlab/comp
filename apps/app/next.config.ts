@@ -39,6 +39,14 @@ const config: NextConfig = {
       ? `${process.env.STATIC_ASSETS_URL}/app`
       : '',
   reactStrictMode: false,
+  typescript: {
+    // Next.js runs type checking in a *separate* build worker process. On the
+    // Vercel build container (8 GB) the Turbopack compile has already peaked
+    // when that worker starts, and the container OOM-kills it (SIGKILL).
+    // Type checking is a separate concern with its own turbo task — run
+    // `bun run typecheck` locally or in CI instead of inside the deploy.
+    ignoreBuildErrors: process.env.SKIP_TYPES === '1',
+  },
   transpilePackages: [
     '@trycompai/auth',
     '@trycompai/db',
