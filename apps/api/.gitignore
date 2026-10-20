@@ -69,3 +69,5 @@ prisma/schema/*.prisma
 !prisma/schema/schema.prisma
 trigger.config.js
 test/**/*.js
+.vercel
+.env*

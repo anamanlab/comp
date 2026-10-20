@@ -1,14 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "version": 2,
   "installCommand": "bun install --frozen-lockfile",
   "buildCommand": "bun run build",
-  "builds": [
-    {
-      "src": "api/index.js",
-      "use": "@vercel/node"
+  "outputDirectory": "public",
+  "build": {
+    "env": {
+      "NODE_OPTIONS": "--experimental-require-module --max_old_space_size=6144",
+      "NEXT_TELEMETRY_DISABLED": "1"
     }
-  ],
+  },
   "routes": [
     {
       "src": "/(.*)",
