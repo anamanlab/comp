@@ -185,5 +185,14 @@ export async function createApp(): Promise<CreatedApi> {
     },
   });
 
+  // Register Nest's routes and run the onModuleInit hooks.
+  //
+  // `app.listen()` does this implicitly, but the Vercel serverless entry never
+  // listens — it hands the Express instance to Vercel as a request handler.
+  // Without this, the controller routes and the better-auth middleware (which
+  // registers itself in AuthModule.onModuleInit) are never mounted, and every
+  // request 404s. init() is idempotent, so app.listen() afterwards is a no-op.
+  await app.init();
+
   return { app, document, port };
 }
