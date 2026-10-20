@@ -135,6 +135,20 @@ Verified with a throwaway probe function on Vercel (Node v24.21.0):
 So `comp-api` sets `NODE_OPTIONS=--experimental-require-module` as a **project env var** (runtime), and
 `vercel.json` adds `--max_old_space_size=6144` on top for the build.
 
+### Serverless gotchas (all found the hard way)
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Cannot find module '../dist/app-factory'` | Vercel builds the dependency graph with `@vercel/nft`, which cannot see a computed `require(variable)`. Nothing under `dist/` was deployed. | Use a **static literal** `require('../dist/function.cjs')`. |
+| `Cannot find module '.../@trycompai/utils/src/devices.ts'` | `@trycompai/utils` is a source-only workspace package — its `exports` point at `.ts` files, so the compiled output emits a require Node cannot satisfy. | `scripts/build-function.js` bundles the API with esbuild (which compiles the TS). `@trycompai/*` is bundled; third-party packages stay external and are traced by nft. |
+| `ERR_REQUIRE_ESM` on `@thallesp/nestjs-better-auth` | Vercel's Node runtime ships with `require(esm)` **disabled**. | `NODE_OPTIONS=--experimental-require-module` as a project env var. Verified on Vercel Node v24.21.0. |
+| Every request 404s, `/api/docs-json` works | `app.listen()` implicitly calls `app.init()`, which registers Nest's routes and runs `onModuleInit` (where the better-auth middleware registers itself). The serverless entry never listens. | `await app.init()` in `createApp()`. |
+| `TRUST_APP_URL or PORTAL_URL must be set in production` | `TrustAccessService` throws at construction when `NODE_ENV=production`. | Set `TRUST_APP_URL` and `PORTAL_URL`. |
+| `MACED_API_KEY is required to start the pentest module` | The pentest provider throws at construction. | Set a `mc_dev_`-prefixed placeholder; only pentest requests fail, and that paid feature is unused. |
+| `nest build` OOM | `tsc` needs >2 GB for this API (40+ AWS SDK clients). | `NODE_OPTIONS=--max_old_space_size=6144` in the build env. |
+| `npm error Unsupported URL Type "workspace:"` | A `builds` array in vercel.json disables the project's install/build settings, so the install fell back to npm, which cannot parse `workspace:*`. | Use `routes` + `functions` instead of `builds`, and keep the explicit `installCommand`. |
+| `STATIC_BUILD_NO_OUT_DIR` | A frameworkless project needs a static output directory. | `public/` + `"outputDirectory": "public"`. |
+
 ### Domain and cookie
 
 Both services are CNAMEs to Vercel in Cloudflare (`proxied: false`):

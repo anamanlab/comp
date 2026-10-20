@@ -3,6 +3,7 @@
 import { GithubSignIn } from '@/components/github-sign-in';
 import { GoogleSignIn } from '@/components/google-sign-in';
 import { MagicLinkSignIn } from '@/components/magic-link';
+import { EmailPasswordSignIn } from '@/components/email-password-sign-in';
 import { MicrosoftSignIn } from '@/components/microsoft-sign-in';
 import { Button } from '@trycompai/ui/button';
 import { Card, CardContent, CardDescription, CardTitle } from '@trycompai/ui/card';
@@ -55,7 +56,16 @@ export function LoginForm({
     );
   }
 
-  const preferredSignInOption = showGoogle ? (
+  const emailPasswordEnabled =
+    process.env.NEXT_PUBLIC_EMAIL_PASSWORD_ENABLED === 'true';
+
+  const preferredSignInOption = emailPasswordEnabled ? (
+    <EmailPasswordSignIn
+      key="preferred-email-password"
+      inviteCode={inviteCode}
+      redirectTo={redirectTo}
+    />
+  ) : showGoogle ? (
     <GoogleSignIn inviteCode={inviteCode} redirectTo={redirectTo} />
   ) : (
     <MagicLinkSignIn
@@ -74,6 +84,15 @@ export function LoginForm({
         inviteCode={inviteCode}
         redirectTo={redirectTo}
         onMagicLinkSubmit={handleMagicLinkSent}
+      />,
+    );
+  }
+  if (emailPasswordEnabled && showGoogle) {
+    moreOptionsList.push(
+      <EmailPasswordSignIn
+        key="secondary-email-password"
+        inviteCode={inviteCode}
+        redirectTo={redirectTo}
       />,
     );
   }

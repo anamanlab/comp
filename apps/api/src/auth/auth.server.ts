@@ -273,8 +273,14 @@ export const auth = betterAuth({
   baseURL: process.env.BASE_URL || 'http://localhost:3333',
   trustedOrigins: getBetterAuthTrustedOrigins(),
   emailAndPassword: {
-    // Not used — apps sign in via magic link, email OTP, and OAuth.
-    enabled: false,
+    // Not used upstream — apps sign in via magic link, email OTP, and OAuth.
+    //
+    // Those paths deliver mail through a Trigger.dev task, so they need a
+    // deployed Trigger.dev project; OAuth additionally needs provider
+    // credentials. A self-hosted instance that has neither can opt in to a
+    // plain email + password instead. Off by default, so upstream behaviour is
+    // unchanged unless AUTH_EMAIL_PASSWORD_ENABLED=true is set.
+    enabled: process.env.AUTH_EMAIL_PASSWORD_ENABLED === 'true',
   },
   emailVerification: {
     sendOnSignUp: true,
