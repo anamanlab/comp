@@ -1,15 +1,16 @@
 /**
  * Vercel serverless entry for the Comp API.
  *
- * `nest build` compiles `src/` to `dist/`, so this file requires the compiled
- * factory rather than the TypeScript source — the Vercel builder cannot
- * compile NestJS from source because esbuild does not support
- * `emitDecoratorMetadata`, which the DI container depends on.
+ * `dist/function.cjs` is produced by `scripts/build-function.js`, which bundles
+ * the compiled API (and the @trycompai/* workspace packages) into a single
+ * CommonJS file. Two reasons:
  *
- * The require path below is a static literal on purpose: Vercel traces the
- * dependency graph with @vercel/nft, and a computed `require(variable)` is
- * invisible to it, so the whole compiled `dist/` tree would be missing from
- * the deployed function.
+ *  - `@trycompai/utils` is a source-only workspace package whose `exports`
+ *    point at `.ts` files, so the plain compiled output emits a require() that
+ *    Node cannot satisfy at runtime.
+ *  - The require path below is a static literal on purpose: Vercel traces the
+ *    dependency graph with @vercel/nft, and a computed `require(variable)` is
+ *    invisible to it, so the bundle would not be included in the deployment.
  *
  * The Express instance is what Vercel's @vercel/node runtime expects: it is a
  * plain (req, res) handler. The instance is created lazily and memoised, so
@@ -20,38 +21,23 @@
 const fs = require('fs');
 const path = require('path');
 
-function loadFactory() {
-  try {
-    // Static literal — traced by nft.
-    return require('../dist/src/app-factory');
-  } catch (error) {
-    const primaryMissing =
-      error &&
-      error.code === 'MODULE_NOT_FOUND' &&
-      String(error.message).includes("'../dist/src/app-factory'");
-    // A nested MODULE_NOT_FOUND means something inside the API's dependency
-    // graph is missing — surface that instead of hiding it behind a fallback.
-    if (!primaryMissing) throw error;
 
-    // Best-effort fallback for a different nest build layout. Not traced by
-    // nft (computed path), so it only works if the file is already present.
-    const flat = path.join(__dirname, '../dist/app-factory.js');
-    if (!fs.existsSync(flat)) {
-      throw new Error(
-        '[comp-api] compiled app-factory not found at ' +
-          path.join(__dirname, '../dist/src/app-factory.js') +
-          ' or ' +
-          flat,
-      );
-    }
-    return require(flat);
+function loadBundle() {
+  if (!fs.existsSync(path.join(__dirname, '../dist/function.cjs'))) {
+    throw new Error(
+      '[comp-api] bundle not found at ' +
+        path.join(__dirname, '../dist/function.cjs') +
+        ' — did "node scripts/build-function.js" run?',
+    );
   }
+  // Static literal — @vercel/nft must be able to see this require.
+  return require('../dist/function.cjs');
 }
 
 let handlerPromise = null;
 
 async function getHandler() {
-  const { createApp } = loadFactory();
+  const { createApp } = loadBundle();
   const { app } = await createApp();
   return app.getHttpAdapter().getInstance();
 }
