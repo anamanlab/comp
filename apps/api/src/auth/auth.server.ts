@@ -50,6 +50,15 @@ const MAGIC_LINK_EXPIRES_IN_SECONDS = 60 * 60; // 1 hour
  * Determine the cookie domain based on environment.
  */
 function getCookieDomain(): string | undefined {
+  // Explicit override. The API and the web app are served from different
+  // hosts (api.crm.optvoo.com / crm.optvoo.com), so the session cookie has to
+  // be scoped to their shared parent domain for the app's server-side session
+  // lookups (which forward the incoming Cookie header to this API) to work.
+  const explicit = process.env.COOKIE_DOMAIN;
+  if (explicit) {
+    return explicit;
+  }
+
   const baseUrl = process.env.BASE_URL || '';
 
   if (baseUrl.includes('staging.trycomp.ai')) {

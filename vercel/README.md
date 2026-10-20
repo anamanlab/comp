@@ -10,11 +10,40 @@ Hobby at $0. Fork: https://github.com/anamanlab/comp
 | Piece | Where | Cost |
 |---|---|---|
 | Next.js app (`apps/app`) | Vercel project `comp-app`, Root Directory `apps/app` | $0 (Hobby) |
+| Production URL | **https://crm.optvoo.com** (alias: `comp.optvoo.com`) | — |
 | Postgres | Neon project `comp-app` (`lively-wind-77614469`), region `aws-us-east-1` | $0 (Free: 1 GB) |
 | Attachments / org assets | Cloudflare R2 buckets `comp-app-files`, `comp-app-questionnaires`, `comp-app-knowledge-base` | $0 (10 GB) |
 | Transactional email | Resend (`comp@optvoo.com`) | $0 (3,000/mo) |
+| AI features | Groq (`GROQ_API_KEY`) | $0 (free tier) |
 | Background jobs | Trigger.dev (67 tasks) | $0 ($5/mo credits) |
 | Payments | **Disabled** — `NEXT_PUBLIC_SELF_HOSTED=true` auto-approves orgs | — |
+
+### Custom domain
+
+Both domains are CNAMEs to Vercel, created in Cloudflare (`proxied: false`, matching the pattern of
+the other Vercel subdomains in this zone):
+
+```
+comp.optvoo.com  CNAME  cname.vercel-dns.com
+crm.optvoo.com   CNAME  cname.vercel-dns.com
+```
+
+`crm.optvoo.com` is canonical — it is the value baked into `NEXT_PUBLIC_BETTER_AUTH_URL` and
+`BETTER_AUTH_URL`. Delete the `comp.optvoo.com` CNAME and its Vercel domain entry if you want only
+one.
+
+### Cloudflare DNS record shape
+
+`cf` CLI on this machine only accepts a raw JSON body for DNS creates:
+
+```bash
+cf dns records create --zone optvoo.com --body @record.json
+```
+
+```json
+{ "type": "CNAME", "name": "crm.optvoo.com", "content": "cname.vercel-dns.com", "proxied": false, "ttl": 1 }
+```
+
 
 ## 2. Repo changes vs upstream
 
@@ -83,10 +112,10 @@ Set via the Vercel dashboard or API (`POST /v10/projects/{id}/env`). Scoped to *
 | Key | Value | Why |
 |---|---|---|
 | `NEXT_PUBLIC_SELF_HOSTED` | `true` | **Bakes into the client bundle.** Auto-approves orgs and bypasses Stripe/payment. Without it, users hit an upgrade wall. |
-| `NEXT_PUBLIC_BETTER_AUTH_URL` | `https://comp-app.vercel.app` | Must match the deployed domain |
+| `NEXT_PUBLIC_BETTER_AUTH_URL` | `https://crm.optvoo.com` | Must match the deployed domain |
 | `NEXT_PUBLIC_PORTAL_URL` | portal domain | The employee portal runs as a separate deployment |
-| `BETTER_AUTH_URL` | `https://comp-app.vercel.app` | Server-side auth base URL |
-| `AUTH_TRUSTED_ORIGINS` | `https://comp-app.vercel.app` | Comma-separated |
+| `BETTER_AUTH_URL` | `https://crm.optvoo.com` | Server-side auth base URL |
+| `AUTH_TRUSTED_ORIGINS` | `https://crm.optvoo.com,https://comp.optvoo.com` | Comma-separated |
 | `RESEND_FROM_SYSTEM` | `Comp <comp@optvoo.com>` | Must be a verified Resend domain |
 | `RESEND_FROM_DEFAULT` | `Comp <comp@optvoo.com>` | |
 
@@ -105,10 +134,11 @@ Set via the Vercel dashboard or API (`POST /v10/projects/{id}/env`). Scoped to *
 
 ### Optional
 
-`OPENAI_API_KEY` / `GROQ_API_KEY` (AI chat, policy/risk generation) · `FIRECRAWL_API_KEY` (vendor
-research) · `UPSTASH_REDIS_REST_URL` + `_TOKEN` (rate limiting) · `UPSTASH_VECTOR_REST_*` (knowledge
-base) · `TRIGGER_SECRET_KEY` + `TRIGGER_API_KEY` (background jobs) · `NOVU_API_KEY` (notifications) ·
-`DUB_API_KEY` (referrals) · `NEXT_PUBLIC_POSTHOG_KEY` + `_HOST` (analytics) · `NEXT_PUBLIC_APP_ENV`.
+`GROQ_API_KEY` (AI chat, policy/risk/vendor generation — free tier) · `OPENAI_API_KEY` (alternative
+provider) · `FIRECRAWL_API_KEY` (vendor research) · `UPSTASH_REDIS_REST_URL` + `_TOKEN` (rate limiting)
+· `UPSTASH_VECTOR_REST_*` (knowledge base) · `TRIGGER_SECRET_KEY` + `TRIGGER_API_KEY` (background jobs)
+· `NOVU_API_KEY` (notifications) · `DUB_API_KEY` (referrals) · `NEXT_PUBLIC_POSTHOG_KEY` + `_HOST`
+(analytics) · `NEXT_PUBLIC_APP_ENV`.
 
 ## 5. Neon connection string
 
