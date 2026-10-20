@@ -209,6 +209,13 @@ Set via the Vercel dashboard or API (`POST /v10/projects/{id}/env`). Scoped to *
 | `AUTH_TRUSTED_ORIGINS` | `https://crm.optvoo.com,https://comp.optvoo.com` | Comma-separated |
 | `RESEND_FROM_SYSTEM` | `Comp <comp@optvoo.com>` | Must be a verified Resend domain |
 | `RESEND_FROM_DEFAULT` | `Comp <comp@optvoo.com>` | |
+| `UPSTASH_REDIS_REST_URL` | Upstash REST URL | **Required** — `@trycompai/kv` stores setup sessions in Redis. Without it the Upstash auto-pipeline throws `Failed to parse URL from /pipeline` and `/setup` returns 500. |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash REST token | same |
+| `SERVICE_TOKEN_TRIGGER` | shared secret | Must be the **same value** on the app and the API (service-to-service calls) |
+| `PRISMA_ALLOW_INSECURE_TLS` | `1` | API only. See the serverless gotchas table. |
+| `AUTH_EMAIL_PASSWORD_ENABLED` | `true` | API only. Enables email + password sign-in. |
+| `TRUST_APP_URL` / `PORTAL_URL` | `https://crm.optvoo.com` | Required in production or the API refuses to boot. |
+| `MACED_API_KEY` | `mc_dev_placeholder` | Pentest provider; must be `mc_`-prefixed or the client rejects it. |
 
 ### Cloudflare R2 (S3-compatible)
 
