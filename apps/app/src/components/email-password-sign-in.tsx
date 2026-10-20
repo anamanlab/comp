@@ -13,16 +13,11 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-const formSchema = z
-  .object({
-    email: z.string().email(),
-    password: z.string().min(8, 'Use at least 8 characters'),
-    name: z.string().optional(),
-  })
-  .refine((values) => values.name === undefined || values.name.length > 0, {
-    message: 'Enter your name',
-    path: ['name'],
-  });
+const formSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8, 'Use at least 8 characters'),
+  name: z.string().optional(),
+});
 
 type Mode = 'signin' | 'signup';
 
@@ -59,13 +54,25 @@ export function EmailPasswordSignIn({
     password,
     name,
   }: z.infer<typeof formSchema>) {
+    const displayName = (name ?? '').trim();
+
+    if (mode === 'signup' && displayName.length === 0) {
+      toast.error('Enter your name');
+      return;
+    }
+
     setLoading(true);
 
     const callbackURL = buildAuthCallbackUrl({ inviteCode, redirectTo });
 
     const result =
       mode === 'signup'
-        ? await authClient.signUp.email({ email, password, name, callbackURL })
+        ? await authClient.signUp.email({
+            email,
+            password,
+            name: displayName,
+            callbackURL,
+          })
         : await authClient.signIn.email({ email, password, callbackURL });
 
     if (result.error) {

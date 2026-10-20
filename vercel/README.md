@@ -149,6 +149,22 @@ So `comp-api` sets `NODE_OPTIONS=--experimental-require-module` as a **project e
 | `npm error Unsupported URL Type "workspace:"` | A `builds` array in vercel.json disables the project's install/build settings, so the install fell back to npm, which cannot parse `workspace:*`. | Use `routes` + `functions` instead of `builds`, and keep the explicit `installCommand`. |
 | `STATIC_BUILD_NO_OUT_DIR` | A frameworkless project needs a static output directory. | `public/` + `"outputDirectory": "public"`. |
 
+### Sign-in
+
+Upstream signs users in with a **magic link**, an **email OTP** or **OAuth**. The magic link and the OTP
+both deliver their mail through a Trigger.dev task (`triggerEmail` → `tasks.trigger('send-email')`), so
+they need a deployed Trigger.dev project; OAuth additionally needs provider credentials.
+
+For a self-hosted instance with neither, this fork adds an **opt-in** email + password path:
+
+| Side | Flag | Effect |
+|---|---|---|
+| API | `AUTH_EMAIL_PASSWORD_ENABLED=true` | `emailAndPassword.enabled` in `apps/api/src/auth/auth.server.ts` |
+| App | `NEXT_PUBLIC_EMAIL_PASSWORD_ENABLED=true` | renders `EmailPasswordSignIn` and makes it the preferred option |
+
+Both default to off, so upstream behaviour is unchanged unless the flags are set. With them set you can
+sign in with `email` + `password` (min 8 chars) with no external service at all.
+
 ### Domain and cookie
 
 Both services are CNAMEs to Vercel in Cloudflare (`proxied: false`):
