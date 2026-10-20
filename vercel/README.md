@@ -81,15 +81,75 @@ Why each part matters:
 - **`SKIP_ENV_VALIDATION=1`** — `apps/app/src/env.mjs` would otherwise fail the build when optional
   third-party keys are absent.
 
-## 3. Vercel project settings (not in the repo)
+## 3. Vercel projects
 
-| Setting | Value | Note |
+Two projects, because the web app is a **pure frontend**:
+
+| Project | Root Directory | What it is |
 |---|---|---|
-| Root Directory | `apps/app` | Set in the dashboard / `PATCH /v10/projects/{id}` with `rootDirectory` |
-| **Include source files outside of the Root Directory in the Build Step** | **ON** | Required — the build reads `../../packages/*`. On by default for projects created after 2020-08-27. API field: `sourceFilesOutsideRootDirectory` |
-| Framework Preset | Next.js | Auto-detected |
-| Node.js Version | 22 | Matches the repo's Dockerfile (`node:22-alpine`) |
-| Bun version | 1.3.4 | From root `package.json` `packageManager` |
+| `comp-app` | `apps/app` | Next.js web app → `crm.optvoo.com` |
+| `comp-api` | `apps/api` | NestJS API + better-auth → `api.crm.optvoo.com` |
+
+`apps/app/src/utils/auth.ts` is explicit about this: *"The actual auth server runs on the API — this
+app only consumes auth services."* Every session and organisation operation is an
+`${API_URL}/api/auth/*` call, so `apps/api` must be deployed too.
+
+### Project settings that are not in the repo
+
+| Setting | `comp-app` | `comp-api` |
+|---|---|---|
+| Root Directory | `apps/app` | `apps/api` |
+| **Include source files outside of the Root Directory in the Build Step** | **ON** | **ON** |
+| API field | `sourceFilesOutsideRootDirectory: true` | same |
+| Node.js Version | 22 | 24 |
+| Bun version | 1.3.4 (from root `packageManager`) | same |
+| Deployment protection | off (the API must be publicly reachable) | off |
+
+`apps/api` runs NestJS as a Vercel serverless function:
+
+- `src/app-factory.ts` — `createApp()` extracted from `main.ts`. The full middleware stack (CORS,
+  helmet, origin checks, better-auth raw-body handling, global pipes, URI versioning, Swagger)
+  without binding a socket. `main.ts` now just creates the app and listens.
+- `api/index.js` — the Vercel entry. It requires the **compiled** factory because the Vercel builder
+  cannot compile NestJS from source (esbuild does not support `emitDecoratorMetadata`, which the DI
+  container depends on). The Express instance is created lazily and memoised, so the Nest container is
+  built once per lambda instance rather than once per request.
+- `vercel.json` — `routes` (not `rewrites`) so the original path reaches the function; `rewrites`
+  would rewrite `req.url` and break Nest's router. `public/` + `outputDirectory` exist because a
+  frameworkless project otherwise fails with `STATIC_BUILD_NO_OUT_DIR`.
+
+### `require(esm)` on the Vercel runtime
+
+`@thallesp/nestjs-better-auth` is ESM-only (`"type": "module"`, exports only `./dist/index.mjs`) and
+the compiled CommonJS output `require()`s it. **Vercel's Node runtime ships with `require(esm)`
+disabled**, so the function crashed at cold start with `ERR_REQUIRE_ESM`.
+
+Verified with a throwaway probe function on Vercel (Node v24.21.0):
+
+| Approach | Result |
+|---|---|
+| `require('./x.mjs')` | ❌ `FAIL ERR_REQUIRE_ESM` |
+| `require('./x.mjs')` + `NODE_OPTIONS=--experimental-require-module` | ✅ `OK` |
+| `await import('./x.mjs')` | ✅ `OK` |
+
+So `comp-api` sets `NODE_OPTIONS=--experimental-require-module` as a **project env var** (runtime), and
+`vercel.json` adds `--max_old_space_size=6144` on top for the build.
+
+### Domain and cookie
+
+Both services are CNAMEs to Vercel in Cloudflare (`proxied: false`):
+
+```
+crm.optvoo.com     CNAME  cname.vercel-dns.com     → comp-app
+api.crm.optvoo.com  CNAME  cname.vercel-dns.com     → comp-api
+```
+
+The session cookie is scoped to `.crm.optvoo.com` so both hosts share it — the web app's server-side
+session lookups forward the incoming `Cookie` header to the API, which only works if the cookie is
+sent to the app host as well. `apps/api/src/auth/auth.server.ts` gained a `COOKIE_DOMAIN` env
+override for this (upstream hardcodes `*.trycomp.ai`).
+
+---
 
 ## 4. Environment variables
 
